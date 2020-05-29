@@ -1,0 +1,337 @@
+sap.ui.define([
+	"sap/ui/core/mvc/Controller",
+	"sap/ui/core/routing/History",
+	"TMR/TMR/codeModule/messages",
+	"TMR/TMR/codeModule/serviceLayerQuery",
+	"sap/ui/core/Fragment",
+	"sap/ui/core/syncStyleClass",
+	"sap/ui/model/json/JSONModel",
+	"sap/ui/model/Filter",
+	"sap/ui/model/FilterOperator"
+], function (Controller, History, message, Query, Fragment, syncStyleClass, JSONModel, Filter, FilterOperator) {
+	"use strict";
+	return Controller.extend("TMR.TMR.controller.prodOrder", {
+		/**
+		 * Called when a controller is instantiated and its View controls (if available) are already created.
+		 * Can be used to modify the View before it is displayed, to bind event handlers and do other one-time initialization.
+		 * @memberOf TMR.TMR.view.prodOrder
+		 */
+		onInit: function () {
+			var oRouter = sap.ui.core.UIComponent.getRouterFor(this);
+			oRouter.getRoute("prodOrder").attachMatched(this._onRouteMatched, this);
+
+		},
+		_onRouteMatched: function (oEvent) {
+			var type = oEvent.getParameter("arguments").Type;
+			var id = oEvent.getParameter("arguments").ID;
+			this.getView().byId("idType").setValue(type);
+			this.getView().byId("idID").setValue(id);
+			this._getProductionOrder();
+
+			//	var resourceVal = emplResousrce.Value(Resources / ResourceEmployees / Code);
+
+		},
+		_getProductionOrder: function () {
+			var type = this.getView().byId("idType").getValue();
+			var id = this.getView().byId("idID").getValue();
+			switch (type) {
+			case "E":
+				var resourceEmpUrl = " ";
+				var urlEmplResource =
+					"https://b3hsl.acomi.dk/b1s/v1/$crossjoin(Resources,Resources/ResourceEmployees)?$expand=Resources/ResourceEmployees($select=Code)&$filter=Resources/Code  eq  Resources/ResourceEmployees/Code    and  Resources/ResourceEmployees/Employee eq " +
+					"'" + id.toString() + "'";
+				var emplResource = Query._getOdata(urlEmplResource);
+				$.each(emplResource.value, function (i, value) {
+					resourceEmpUrl = resourceEmpUrl + "or ProductionOrders/ProductionOrderLines/ItemNo eq '" + value["Resources/ResourceEmployees"]
+						.Code + "'";
+				});
+				var oDataEmpOrdToProcess;
+				var urlToProcess =
+					"https://b3hsl.acomi.dk/b1s/v1/$crossjoin(ProductionOrders,ProductionOrders/ProductionOrderLines,ProductionOrders/ProductionOrdersStages)?$expand=ProductionOrders($select=AbsoluteEntry,DocumentNumber,ItemNo,PlannedQuantity,DueDate,StartDate),ProductionOrders/ProductionOrderLines($select=ItemNo,LineNumber,U_TMR_Status),ProductionOrders/ProductionOrdersStages($select=DocEntry,Name)&$filter=ProductionOrders/AbsoluteEntry eq ProductionOrders/ProductionOrderLines/DocumentAbsoluteEntry  and ProductionOrders/ProductionOrderLines/DocumentAbsoluteEntry eq ProductionOrders/ProductionOrdersStages/DocEntry and ProductionOrders/ProductionOrderLines/StageID eq ProductionOrders/ProductionOrdersStages/StageID and  ProductionOrders/ProductionOrderStatus eq 'R'and ProductionOrders/ProductionOrderLines/U_TMR_Status eq 0 and (ProductionOrders/ProductionOrderLines/ItemNo eq 'XXXXX'" +
+					resourceEmpUrl + ")";
+				oDataEmpOrdToProcess = Query._getOdata(urlToProcess);
+				var oModel = new sap.ui.model.json.JSONModel(oDataEmpOrdToProcess);
+				var oTableEmpToProcess = this.getView().byId("idOrdToProcess");
+				oTableEmpToProcess.setModel(oModel);
+				var oDataEmpOrdInProcess;
+				var urlInProcess =
+					"https://b3hsl.acomi.dk/b1s/v1/$crossjoin(ProductionOrders,ProductionOrders/ProductionOrderLines,ProductionOrders/ProductionOrdersStages)?$expand=ProductionOrders($select=AbsoluteEntry,DocumentNumber,ItemNo,PlannedQuantity,DueDate,StartDate),ProductionOrders/ProductionOrderLines($select=ItemNo,LineNumber,U_TMR_Status),ProductionOrders/ProductionOrdersStages($select=DocEntry,Name)&$filter=ProductionOrders/AbsoluteEntry eq ProductionOrders/ProductionOrderLines/DocumentAbsoluteEntry  and ProductionOrders/ProductionOrderLines/DocumentAbsoluteEntry eq ProductionOrders/ProductionOrdersStages/DocEntry and ProductionOrders/ProductionOrderLines/StageID eq ProductionOrders/ProductionOrdersStages/StageID and  ProductionOrders/ProductionOrderStatus eq 'R'and ProductionOrders/ProductionOrderLines/U_TMR_Status eq 1 and (ProductionOrders/ProductionOrderLines/ItemNo eq 'XXXXX'" +
+					resourceEmpUrl + ")";
+				oDataEmpOrdInProcess = Query._getOdata(urlInProcess);
+				oModel = new sap.ui.model.json.JSONModel(oDataEmpOrdInProcess);
+				var oTableEmpInProcess = this.getView().byId("idOrdInProcess");
+
+				oTableEmpInProcess.setModel(oModel);
+				break;
+			case "M":
+				var resourceMchinUrl = " ";
+				var urlMchinResource =
+					"https://b3hsl.acomi.dk/b1s/v1/$crossjoin(Resources,Resources/ResourceFixedAssets)?$expand=Resources/ResourceFixedAssets($select=Code)&$filter=Resources/Code  eq  Resources/ResourceFixedAssets/Code and Resources/ResourceFixedAssets/ItemCode  eq " +
+					"'" + id.toString() + "'";
+				var mchinResousrce = Query._getOdata(urlMchinResource);
+				$.each(mchinResousrce.value, function (i, value) {
+					resourceMchinUrl = resourceMchinUrl + "or ProductionOrders/ProductionOrderLines/ItemNo eq '" + value[
+						"Resources/ResourceFixedAssets"].Code + "'";
+				});
+				var oDataMchinToProcess;
+				var urlMchinToProcess =
+					"https://b3hsl.acomi.dk/b1s/v1/$crossjoin(ProductionOrders,ProductionOrders/ProductionOrderLines,ProductionOrders/ProductionOrdersStages)?$expand=ProductionOrders($select=AbsoluteEntry,DocumentNumber,ItemNo,PlannedQuantity,DueDate,StartDate),ProductionOrders/ProductionOrderLines($select=ItemNo,LineNumber,U_TMR_Status),ProductionOrders/ProductionOrdersStages($select=DocEntry,Name)&$filter=(ProductionOrders/AbsoluteEntry eq ProductionOrders/ProductionOrderLines/DocumentAbsoluteEntry  and ProductionOrders/ProductionOrderLines/DocumentAbsoluteEntry eq ProductionOrders/ProductionOrdersStages/DocEntry and ProductionOrders/ProductionOrderLines/StageID eq ProductionOrders/ProductionOrdersStages/StageID and  ProductionOrders/ProductionOrderStatus eq 'R'and ProductionOrders/ProductionOrderLines/U_TMR_Status eq 0 and ProductionOrders/ProductionOrderLines/ItemNo eq '" +
+					id.toString() + "')";
+				// + resourceMchinUrl + ")";
+				oDataMchinToProcess = Query._getOdata(urlMchinToProcess);
+				var oTableMchinToProcess = this.getView().byId("idOrdToProcess");
+				var oModelMchin = new sap.ui.model.json.JSONModel(oDataMchinToProcess);
+				oTableMchinToProcess.setModel(oModelMchin);
+				var oDataMchinInProcess;
+				var urlMchinInProcess =
+					"https://b3hsl.acomi.dk/b1s/v1/$crossjoin(ProductionOrders,ProductionOrders/ProductionOrderLines,ProductionOrders/ProductionOrdersStages)?$expand=ProductionOrders($select=AbsoluteEntry,DocumentNumber,ItemNo,PlannedQuantity,DueDate,StartDate),ProductionOrders/ProductionOrderLines($select=ItemNo,LineNumber,U_TMR_Status),ProductionOrders/ProductionOrdersStages($select=DocEntry,Name)&$filter=(ProductionOrders/AbsoluteEntry eq ProductionOrders/ProductionOrderLines/DocumentAbsoluteEntry  and ProductionOrders/ProductionOrderLines/DocumentAbsoluteEntry eq ProductionOrders/ProductionOrdersStages/DocEntry and ProductionOrders/ProductionOrderLines/StageID eq ProductionOrders/ProductionOrdersStages/StageID and  ProductionOrders/ProductionOrderStatus eq 'R'and ProductionOrders/ProductionOrderLines/U_TMR_Status eq 1 and ProductionOrders/ProductionOrderLines/ItemNo eq '" +
+					id.toString() + "')";
+				//	resourceMchinUrl + "')";
+				oDataMchinInProcess = Query._getOdata(urlMchinInProcess);
+				var oTableMchinInProcess = this.getView().byId("idOrdInProcess");
+				oModelMchin = new sap.ui.model.json.JSONModel(oDataMchinInProcess);
+				oTableMchinInProcess.setModel(oModelMchin);
+				break;
+			case "R":
+				var oDataRoutToProcess;
+				var urlRoutToProcess =
+					"https://b3hsl.acomi.dk/b1s/v1/$crossjoin(ProductionOrders,ProductionOrders/ProductionOrderLines,ProductionOrders/ProductionOrdersStages)?$expand=ProductionOrders($select=AbsoluteEntry,DocumentNumber,ItemNo,PlannedQuantity,DueDate,StartDate),ProductionOrders/ProductionOrderLines($select=ItemNo,LineNumber,U_TMR_Status),ProductionOrders/ProductionOrdersStages($select=DocEntry,Name)&$filter=ProductionOrders/AbsoluteEntry eq ProductionOrders/ProductionOrderLines/DocumentAbsoluteEntry and ProductionOrders/AbsoluteEntry eq ProductionOrders/ProductionOrdersStages/DocEntry and ProductionOrders/ProductionOrdersStages/StageID eq ProductionOrders/ProductionOrderLines/StageID  and ProductionOrders/ProductionOrderLines/U_TMR_Status eq 0 and ProductionOrders/ProductionOrdersStages/Name eq '" +
+					id + "'";
+				oDataRoutToProcess = Query._getOdata(urlRoutToProcess);
+				var oTableRoutToProcess = this.getView().byId("idOrdToProcess");
+				var oModelRout = new sap.ui.model.json.JSONModel(oDataRoutToProcess);
+				oTableRoutToProcess.setModel(oModelRout);
+				var oDataRoutInProcess;
+				var urlRoutInProcess =
+					"https://b3hsl.acomi.dk/b1s/v1/$crossjoin(ProductionOrders,ProductionOrders/ProductionOrderLines,ProductionOrders/ProductionOrdersStages)?$expand=ProductionOrders($select=AbsoluteEntry, DocumentNumber,ItemNo,PlannedQuantity,DueDate,StartDate),ProductionOrders/ProductionOrderLines($select=ItemNo,LineNumber,U_TMR_Status),ProductionOrders/ProductionOrdersStages($select=DocEntry,Name)&$filter=ProductionOrders/AbsoluteEntry eq ProductionOrders/ProductionOrderLines/DocumentAbsoluteEntry and ProductionOrders/ProductionOrderStatus eq 'R' and ProductionOrders/AbsoluteEntry eq ProductionOrders/ProductionOrdersStages/DocEntry and ProductionOrders/ProductionOrdersStages/StageID eq ProductionOrders/ProductionOrderLines/StageID and  ProductionOrders/ProductionOrderStatus eq 'R'  and ProductionOrders/ProductionOrderLines/U_TMR_Status eq 1 and ProductionOrders/ProductionOrdersStages/Name eq '" +
+					id + "'";
+				oDataRoutInProcess = Query._getOdata(urlRoutInProcess);
+				var oTableRoutInProcess = this.getView().byId("idOrdInProcess");
+				oModelRout = new sap.ui.model.json.JSONModel(oDataRoutInProcess);
+				oTableRoutInProcess.setModel(oModelRout);
+				break;
+			default:
+			}
+		},
+		onStart: function (oEvent) {
+			var oDataOrderToStart = oEvent.getSource().getBindingContext().getProperty();
+			//var docNumber = oDataOrderToStart.ProductionOrders.DocumentNumber;
+			var docEntry = oDataOrderToStart.ProductionOrders.AbsoluteEntry;
+			var lineNum = oDataOrderToStart["ProductionOrders/ProductionOrderLines"].LineNumber;
+			var itemCode = oDataOrderToStart["ProductionOrders/ProductionOrderLines"].ItemNo;
+			//var postURL = "https://b3hsl.acomi.dk/b1s/v1/$crossjoin(ProductionOrders,ProductionOrders/ProductionOrderLines)?$expand=ProductionOrders($select=),ProductionOrders/ProductionOrderLines($select=U_TMR_Status)&$filter=(ProductionOrders/AbsoluteEntry eq ProductionOrders/ProductionOrderLines/DocumentAbsoluteEntry and ProductionOrders/AbsoluteEntry eq 55 and ProductionOrders/ProductionOrderLines/LineNumber eq 4)";
+			var patchURL = "https://b3hsl.acomi.dk/b1s/v1/ProductionOrders(" + docEntry + ")" + "?B1S-ReplaceCollectionsOnPatch eq true";
+			var postData = JSON.stringify({
+				"ProductionOrderLines": [{
+					"LineNumber": lineNum,
+					"ItemNo": itemCode,
+					"U_TMR_Status": 1
+				}]
+
+			});
+			Query._patchData(patchURL, postData, 0, docEntry);
+			this._getProductionOrder();
+
+		},
+		onStop: function (oEvent) {
+			var oDataOrderToStop = oEvent.getSource().getBindingContext().getProperty();
+			var docEntry = oDataOrderToStop.ProductionOrders.AbsoluteEntry;
+			var docDate = oDataOrderToStop.ProductionOrders.StartDate;
+			var docDueDate = oDataOrderToStop.ProductionOrders.DueDate;
+			var lineNum = oDataOrderToStop["ProductionOrders/ProductionOrderLines"].LineNumber;
+			var itemCode = oDataOrderToStop["ProductionOrders/ProductionOrderLines"].ItemNo;
+			var patchURL = "https://b3hsl.acomi.dk/b1s/v1/ProductionOrders(" + docEntry + ")" + "?B1S-ReplaceCollectionsOnPatch eq true";
+			var postData = JSON.stringify({
+				"ProductionOrderLines": [{
+					"LineNumber": lineNum,
+					"ItemNo": itemCode,
+					"U_TMR_Status": 2
+				}]
+
+			});
+			Query._patchData(patchURL, postData, 1, docEntry);
+			this._getProductionOrder();
+			var jData = JSON.stringify({
+				"DocType": "I",
+				"DocDate": docDate,
+				"DocDueDate": docDueDate,
+				"Comments": "TMR",
+				"DocumentLines": [{
+					"BaseType": 202,
+					"BaseEntry": docEntry,
+					"BaseLine": lineNum
+				}]
+
+			});
+			Query._goodsIssue(jData);
+		},
+
+		onNavBack: function () {
+
+			var oHistory = History.getInstance();
+			var sPreviousHash = oHistory.getPreviousHash();
+
+			if (sPreviousHash !== undefined) {
+				window.history.go(-1);
+			} else {
+				var oRouter = sap.ui.core.UIComponent.getRouterFor(this);
+				oRouter.navTo("View1", true);
+			}
+		},
+		onExit: function () {
+			if (this._oDialog) {
+				this._oDialog.destroy();
+			}
+		},
+		onComp: function (oEvent) {
+			var oDataOrderToStop = oEvent.getSource().getBindingContext().getProperty();
+			var docEntry = oDataOrderToStop.ProductionOrders.AbsoluteEntry;
+			var oButton = oEvent.getSource();
+			if (!this._oDialog) {
+				Fragment.load({
+					name: "TMR.TMR.view.Dialog",
+					controller: this
+				}).then(function (oDialog) {
+					this._oDialog = oDialog;
+					this._configDialog_Receipt(oButton, docEntry);
+					this._oDialog.open();
+				}.bind(this));
+			} else {
+				this._configDialog_Receipt(oButton, docEntry);
+				this._oDialog.open();
+			}
+			/*var docDate = oDataOrderToStop.ProductionOrders.StartDate;
+			var docDueDate = oDataOrderToStop.ProductionOrders.DueDate;
+			var plannedQuantity = oDataOrderToStop.ProductionOrders.PlannedQuantity;
+			var jData = JSON.stringify({
+				"DocDate": docDate,
+				"DocDueDate": docDueDate,
+				"DocumentLines": [{
+					"Quantity": plannedQuantity,
+					"BaseType": 202,
+					"BaseEntry": docEntry,
+					"BaseLine": null
+				}]
+
+			});
+			Query._goodsReceipt(jData);*/
+		},
+		onEdit: function (oEvent) {
+			var oDataOrderToStop = oEvent.getSource().getBindingContext().getProperty();
+			var docEntry = oDataOrderToStop.ProductionOrders.AbsoluteEntry;
+			var oButton = oEvent.getSource();
+			if (!this._oDialog) {
+				Fragment.load({
+					name: "TMR.TMR.view.Dialog",
+					controller: this
+				}).then(function (oDialog) {
+					this._oDialog = oDialog;
+					this._configDialog(oButton, docEntry);
+					this._oDialog.open();
+				}.bind(this));
+			} else {
+				this._configDialog(oButton, docEntry);
+				this._oDialog.open();
+			}
+		},
+		_configDialog: function (oButton, docEntry) {
+			this._oDialog.setResizable(true);
+			this._oDialog.setMultiSelect(true);
+
+			var sResponsiveStyleClasses =
+				"sapUiResponsivePadding--header sapUiResponsivePadding--subHeader sapUiResponsivePadding--content sapUiResponsivePadding--footer";
+			this._oDialog.addStyleClass(sResponsiveStyleClasses);
+			this.getView().addDependent(this._oDialog);
+			syncStyleClass("sapUiSizeCompact", this.getView(), this._oDialog);
+			var oData;
+			var url =
+				"https://b3hsl.acomi.dk/b1s/v1/$crossjoin(ProductionOrders,ProductionOrders/ProductionOrderLines)" +
+				"?$expand=ProductionOrders($select=AbsoluteEntry, DocumentNumber),ProductionOrders/ProductionOrderLines($select=ItemNo,LineNumber,PlannedQuantity,IssuedQuantity)" +
+				"&$filter=ProductionOrders/AbsoluteEntry eq ProductionOrders/ProductionOrderLines/DocumentAbsoluteEntry and ProductionOrders/ProductionOrderLines/ItemType eq '4' and ProductionOrders/AbsoluteEntry eq " +
+				docEntry;
+			oData = Query._getOdata(url);
+			var oTable = sap.ui.getCore().byId("idPOModalTable");
+
+			var list = [];
+			$.each(oData.value, function (i, item) {
+				list.push({
+					"AbsoluteEntry": item["ProductionOrders"].AbsoluteEntry,
+					"DocumentNumber": item["ProductionOrders"].DocumentNumber,
+					"ItemNo": item["ProductionOrders/ProductionOrderLines"].ItemNo,
+					"PlannedQuantity": item["ProductionOrders/ProductionOrderLines"].PlannedQuantity,
+					"IssuedQuantity": item["ProductionOrders/ProductionOrderLines"].IssuedQuantity,
+					"RemainingQuantity": item["ProductionOrders/ProductionOrderLines"].PlannedQuantity - item[
+						"ProductionOrders/ProductionOrderLines"].IssuedQuantity,
+					"Quantity": item["ProductionOrders/ProductionOrderLines"].PlannedQuantity
+				});
+			});
+			var oModel = new sap.ui.model.json.JSONModel({
+				"value": list
+			});
+			if (list.length > 0) {
+				this._oDialog.setTitle("Production Order No: " + list[0]["DocumentNumber"]);
+			}
+			oTable.setModel(oModel);
+		},
+		_configDialog_Receipt: function (oButton, docEntry) {
+			this._oDialog.setResizable(true);
+			this._oDialog.setMultiSelect(true);
+
+			var sResponsiveStyleClasses =
+				"sapUiResponsivePadding--header sapUiResponsivePadding--subHeader sapUiResponsivePadding--content sapUiResponsivePadding--footer";
+			this._oDialog.addStyleClass(sResponsiveStyleClasses);
+			this.getView().addDependent(this._oDialog);
+			syncStyleClass("sapUiSizeCompact", this.getView(), this._oDialog);
+			var oData;
+			var url =
+				"https://b3hsl.acomi.dk/b1s/v1/ProductionOrders(" + docEntry + ")";
+			oData = Query._getOdata(url);
+			var oTable = sap.ui.getCore().byId("idPOModalTable");
+
+			var list = [];
+			list.push({
+				"AbsoluteEntry": oData["AbsoluteEntry"],
+				"DocumentNumber": oData["DocumentNumber"],
+				"ItemNo": oData["ItemNo"],
+				"PlannedQuantity": oData["PlannedQuantity"],
+				"IssuedQuantity": oData["PlannedQuantity"],
+				"RemainingQuantity": oData["PlannedQuantity"],
+				"Quantity": oData["PlannedQuantity"]
+			});
+
+			var oModel = new sap.ui.model.json.JSONModel({
+				"value": list
+			});
+			if (list.length > 0) {
+				this._oDialog.setTitle("Production Order No: " + list[0]["DocumentNumber"]);
+			}
+			oTable.setModel(oModel);
+		},
+		handleSearch: function (oEvent) {
+			var sValue = oEvent.getParameter("value");
+			var oFilter = new Filter("ItemNo", FilterOperator.Contains, sValue);
+			var oBinding = oEvent.getSource().getBinding("items");
+			oBinding.filter([oFilter]);
+		},
+		handleClose: function (oEvent) {
+			// reset the filter
+			var oBinding = oEvent.getSource().getBinding("items");
+			oBinding.filter([]);
+
+			var aContexts = oEvent.getParameter("selectedContexts");
+			if (aContexts && aContexts.length) {
+				var selectedItems = aContexts.map(function (oContext) {
+					return oContext.getObject().ItemNo;
+				}).join(", ");
+				var productionDocEntry = aContexts.map(function (oContext) {
+					return oContext.getObject().AbsoluteEntry;
+				});
+				// message.sucess("You have choosen " + aContexts.map(function (oContext) {
+				// 	return oContext.getObject().Name;
+				// }).join(", "));
+			}
+		}
+
+	});
+
+});
