@@ -1,7 +1,0 @@
-CREATE PROC PROC_BANK_RECO_LOAD_DATA
-@AcctCode Varchar(50)
-AS
-SELECT 'N' [Chk] ,Account, TransID,Line_ID,RefDate,ShortName [PartyName],'' ChequeNo,Debit,Credit
-,LineMemo  [Remark]
-FROM JDT1 T0 
-WHERE T0.Account = @AcctCode
